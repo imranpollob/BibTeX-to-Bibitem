@@ -6,12 +6,13 @@
 // DOM Elements
 const bibtexInput = document.getElementById('bibtex-input');
 const bibitemOutput = document.getElementById('bibitem-output');
+const inputInfo = document.getElementById('input-info');
+const outputInfo = document.getElementById('output-info');
 const fileUpload = document.getElementById('file-upload');
 const convertBtn = document.getElementById('convert-btn');
 const clearInputBtn = document.getElementById('clear-input');
 const copyBtn = document.getElementById('copy-btn');
 const downloadBtn = document.getElementById('download-btn');
-const statusMessage = document.getElementById('status-message');
 
 // Event Listeners
 fileUpload.addEventListener('change', handleFileUpload);
@@ -59,9 +60,10 @@ function handleFileUpload(event) {
 function handleClear() {
   bibtexInput.value = '';
   bibitemOutput.value = '';
+  inputInfo.textContent = '';
+  outputInfo.textContent = '';
   copyBtn.disabled = true;
   downloadBtn.disabled = true;
-  hideStatus();
 }
 
 /**
@@ -71,14 +73,21 @@ function handleConvert() {
   const bibtexText = bibtexInput.value.trim();
 
   if (!bibtexText) {
-    showStatus('Please enter or upload BibTeX entries', 'error');
+    inputInfo.textContent = '';
+    outputInfo.textContent = '';
     return;
   }
 
   try {
+    const inputCount = countBibTeXEntries(bibtexText);
+    inputInfo.textContent = `Total entries: ${inputCount}`;
+    inputInfo.className = 'entry-info';
+
     const entries = parseBibTeX(bibtexText);
+
     if (entries.length === 0) {
-      showStatus('No valid BibTeX entries found', 'error');
+      outputInfo.textContent = `Converted: 0 entries (${inputCount} failed)`;
+      outputInfo.className = 'entry-info error';
       bibitemOutput.value = '';
       copyBtn.disabled = true;
       downloadBtn.disabled = true;
@@ -92,9 +101,17 @@ function handleConvert() {
     copyBtn.disabled = false;
     downloadBtn.disabled = false;
 
-    showStatus(`Successfully converted ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}`, 'success');
+    const failed = inputCount - entries.length;
+    if (failed > 0) {
+      outputInfo.textContent = `Converted: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} (${failed} failed)`;
+      outputInfo.className = 'entry-info error';
+    } else {
+      outputInfo.textContent = `Converted: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}`;
+      outputInfo.className = 'entry-info success';
+    }
   } catch (error) {
-    showStatus(`Error: ${error.message}`, 'error');
+    outputInfo.textContent = `Error: ${error.message}`;
+    outputInfo.className = 'entry-info error';
     bibitemOutput.value = '';
     copyBtn.disabled = true;
     downloadBtn.disabled = true;
@@ -102,15 +119,65 @@ function handleConvert() {
 }
 
 /**
+ * Count BibTeX entries in text
+ */
+function countBibTeXEntries(text) {
+  const matches = text.match(/@\w+\s*\{/g);
+  return matches ? matches.length : 0;
+}
+
+/**
  * Parse BibTeX text into entries
+ * Uses brace counting for robust parsing of both compact and multi-line entries
  */
 function parseBibTeX(text) {
   const entries = [];
-  const entryPattern = /@(\w+)\s*\{\s*([^,\s]+)\s*,\s*([\s\S]*?)\n\}/g;
+  let i = 0;
 
-  let match;
-  while ((match = entryPattern.exec(text)) !== null) {
-    const [, type, id, fieldsText] = match;
+  while (i < text.length) {
+    // Find the start of an entry
+    const atIndex = text.indexOf('@', i);
+    if (atIndex === -1) break;
+
+    // Extract entry type
+    const typeMatch = text.slice(atIndex).match(/@(\w+)\s*\{/);
+    if (!typeMatch) {
+      i = atIndex + 1;
+      continue;
+    }
+
+    const type = typeMatch[1];
+    const braceStart = atIndex + typeMatch[0].length - 1; // Position of opening {
+
+    // Find matching closing brace by counting
+    let braceCount = 1;
+    let pos = braceStart + 1;
+    while (pos < text.length && braceCount > 0) {
+      if (text[pos] === '{') braceCount++;
+      else if (text[pos] === '}') braceCount--;
+      pos++;
+    }
+
+    if (braceCount !== 0) {
+      // Malformed entry, skip it
+      i = atIndex + 1;
+      continue;
+    }
+
+    // Extract the content between braces
+    const content = text.slice(braceStart + 1, pos - 1);
+
+    // Extract citation key (first item before comma)
+    const commaIndex = content.indexOf(',');
+    if (commaIndex === -1) {
+      i = pos;
+      continue;
+    }
+
+    const id = content.slice(0, commaIndex).trim();
+    const fieldsText = content.slice(commaIndex + 1);
+
+    // Parse fields
     const fields = parseFields(fieldsText);
 
     entries.push({
@@ -118,6 +185,8 @@ function parseBibTeX(text) {
       id: id,
       ...fields
     });
+
+    i = pos;
   }
 
   return entries;
@@ -125,15 +194,73 @@ function parseBibTeX(text) {
 
 /**
  * Parse individual fields from BibTeX entry
+ * Handles both {value} and "value" formats
  */
 function parseFields(fieldsText) {
   const fields = {};
-  const fieldPattern = /(\w+)\s*=\s*\{([^}]*)\}|(\w+)\s*=\s*"([^"]*)"/g;
+  let i = 0;
 
-  let match;
-  while ((match = fieldPattern.exec(fieldsText)) !== null) {
-    const fieldName = match[1] || match[3];
-    const fieldValue = match[2] || match[4];
+  while (i < fieldsText.length) {
+    // Skip whitespace and commas
+    while (i < fieldsText.length && /[\s,]/.test(fieldsText[i])) {
+      i++;
+    }
+
+    if (i >= fieldsText.length) break;
+
+    // Extract field name
+    const fieldNameMatch = fieldsText.slice(i).match(/^(\w+)\s*=/);
+    if (!fieldNameMatch) break;
+
+    const fieldName = fieldNameMatch[1];
+    i += fieldNameMatch[0].length;
+
+    // Skip whitespace after =
+    while (i < fieldsText.length && /\s/.test(fieldsText[i])) {
+      i++;
+    }
+
+    if (i >= fieldsText.length) break;
+
+    let fieldValue = '';
+
+    // Check if value is in quotes or braces
+    if (fieldsText[i] === '{') {
+      // Handle braced value
+      let braceCount = 1;
+      i++; // Skip opening brace
+      const start = i;
+
+      while (i < fieldsText.length && braceCount > 0) {
+        if (fieldsText[i] === '{') braceCount++;
+        else if (fieldsText[i] === '}') braceCount--;
+        if (braceCount > 0) i++;
+      }
+
+      fieldValue = fieldsText.slice(start, i);
+      i++; // Skip closing brace
+
+    } else if (fieldsText[i] === '"') {
+      // Handle quoted value
+      i++; // Skip opening quote
+      const start = i;
+
+      while (i < fieldsText.length && fieldsText[i] !== '"') {
+        i++;
+      }
+
+      fieldValue = fieldsText.slice(start, i);
+      i++; // Skip closing quote
+
+    } else {
+      // Handle unquoted value (numbers, etc.)
+      const start = i;
+      while (i < fieldsText.length && !/[,}]/.test(fieldsText[i])) {
+        i++;
+      }
+      fieldValue = fieldsText.slice(start, i).trim();
+    }
+
     fields[fieldName.toLowerCase()] = cleanLatexString(fieldValue);
   }
 
@@ -233,12 +360,18 @@ async function handleCopy() {
 
   try {
     await navigator.clipboard.writeText(text);
-    showStatus('Copied to clipboard!', 'success');
+    outputInfo.textContent = outputInfo.textContent + ' | Copied!';
+    setTimeout(() => {
+      handleConvert(); // Reset the message
+    }, 2000);
   } catch (error) {
     // Fallback for older browsers
     bibitemOutput.select();
     document.execCommand('copy');
-    showStatus('Copied to clipboard!', 'success');
+    outputInfo.textContent = outputInfo.textContent + ' | Copied!';
+    setTimeout(() => {
+      handleConvert();
+    }, 2000);
   }
 }
 
@@ -258,7 +391,10 @@ function handleDownload() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  showStatus('Downloaded bibitems.txt', 'success');
+  outputInfo.textContent = outputInfo.textContent + ' | Downloaded!';
+  setTimeout(() => {
+    handleConvert();
+  }, 2000);
 }
 
 /**

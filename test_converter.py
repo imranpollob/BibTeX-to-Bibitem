@@ -38,6 +38,11 @@ def create_test_bib_file():
   year={1984},
   publisher={Addison-Wesley}
 }
+
+@article{mohsen2022artificial,title={Artificial intelligence-based methods for fusion of electronic health records andimaging data},author={Mohsen, Farida and Ali, Hazrat and El Hajj, Nady and Shah, Zubair},journal={Scientific Reports},volume={12},number={1},pages={17981},year={2022},
+publisher={Nature Publishing Group UK London}}
+
+@inproceedings{pires2019high,title={High dimensionality: The latest challenge to data analysis},author={Pires, AM and Branco, JA},journal={arXiv preprint arXiv:1902.04679},year={2019}}
 """
     # Create a temporary file
     temp_file = tempfile.NamedTemporaryFile(

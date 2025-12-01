@@ -2,6 +2,7 @@
 
 A professional tool to convert BibTeX bibliography entries to `\bibitem` format for LaTeX documents. Available as both a Python CLI tool and a web application.
 
+![screenshot](screenshot.png)
 
 ## 🎯 Features
 
