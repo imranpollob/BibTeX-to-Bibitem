@@ -271,3 +271,14 @@ $RECYCLE.BIN/
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
 
+# Project-specific output files
+bibitems.txt
+test-output.txt
+test_output_*.txt
+
+# Test input files (keep sample references.bib for demo)
+test_*.bib
+
+# Node modules for any potential web tooling
+node_modules/
+
