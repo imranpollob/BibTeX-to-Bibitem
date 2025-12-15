@@ -325,7 +325,7 @@ function convertToBibitem(entries) {
     bibitem += `\\newblock ${title}.\n`;
 
     if (journal) {
-      bibitem += `\\newblock \\emph{${journal}}`;
+      bibitem += `\\newblock ${journal}`;
       if (volume || number || pages || year) {
         bibitem += ', ';
         if (volume) bibitem += `${volume}`;
@@ -336,7 +336,7 @@ function convertToBibitem(entries) {
       }
       bibitem += '.';
     } else if (booktitle) {
-      bibitem += `\\newblock In \\emph{${booktitle}}`;
+      bibitem += `\\newblock In ${booktitle}`;
       if (pages) bibitem += `, ${pages}`;
       if (year) bibitem += `, ${year}`;
       bibitem += '.';

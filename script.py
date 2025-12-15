@@ -34,11 +34,9 @@ def convert_to_bibitem(entries):
         bibitem += f"{authors}.\n"
         bibitem += f"\\newblock {title}.\n"
         if journal:
-            bibitem += (
-                f"\\newblock \\emph{{{journal}}}, {volume}({number}):{pages}, {year}.\n"
-            )
+            bibitem += f"\\newblock {journal}, {volume}({number}):{pages}, {year}.\n"
         elif booktitle:
-            bibitem += f"\\newblock In \\emph{{{booktitle}}}, {pages}, {year}.\n"
+            bibitem += f"\\newblock In {booktitle}, {pages}, {year}.\n"
         if publisher and not journal and not booktitle:
             bibitem += f"\\newblock {publisher}, {year}.\n"
         bibitems.append(bibitem)
